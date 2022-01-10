@@ -3,6 +3,8 @@ import { confirm, prompt } from "../dialogs";
 import { fetchInternal } from "../cfetch/internal";
 import fetchMock from "jest-fetch-mock";
 
+jest.mock("../sentry");
+
 jest.mock("node-fetch", () => jest.requireActual("jest-fetch-mock"));
 fetchMock.doMock(() => {
   // Any un-mocked fetches should throw

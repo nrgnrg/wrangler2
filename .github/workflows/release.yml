@@ -49,3 +49,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+
+      - name: Get Package Version
+        run: echo "WRANGLER_VERSION=$(npm view wrangler@beta version)" >> $GITHUB_ENV
+        working-directory: packages/wrangler
+
+      - name: SourceMapping Rewrite & Sentry Upload
+        run: node .github/sentry-upload.js
+      - run: npx sentry-cli --auth-token ${{ secrets.SENTRY_AUTH_TOKEN }} releases --org ${{ secrets.SENTRY_ORG }} --project ${{ secrets.SENTRY_PROJECT}} files "wrangler@$WRANGLER_VERSION" upload-sourcemaps ./wrangler-dist --url-prefix /
+        working-directory: packages/wrangler

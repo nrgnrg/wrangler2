@@ -46,6 +46,7 @@ import { setTimeout } from "node:timers/promises";
 import * as fs from "node:fs";
 import { execa } from "execa";
 import { whoami } from "./whoami";
+import { sentryCapture } from "./sentry";
 
 const resetColor = "\x1b[0m";
 const fgGreenColor = "\x1b[32m";
@@ -2056,9 +2057,8 @@ export async function main(argv: string[]): Promise<void> {
   wrangler.version(wranglerVersion).alias("v", "version");
   wrangler.exitProcess(false);
 
-  await initialiseUserConfig();
-
   try {
+    await initialiseUserConfig();
     await wrangler.parse();
   } catch (e) {
     if (e instanceof CommandLineArgsError) {
@@ -2073,6 +2073,7 @@ export async function main(argv: string[]): Promise<void> {
         "If you think this is a bug then please create an issue at https://github.com/cloudflare/wrangler2/issues/new."
       );
     }
+    await sentryCapture(e, "indexCatch");
     throw e;
   }
 }
