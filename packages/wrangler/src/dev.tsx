@@ -1,7 +1,7 @@
 import * as esbuild from "esbuild";
 import assert from "node:assert";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Box, Text, useApp, useInput } from "ink";
@@ -238,6 +238,15 @@ function useLocalWorker(props: {
         );
       }
 
+      // In local mode, we want to copy all referenced modules into
+      // the output bundle directory before starting up
+      for (const module of bundle.modules) {
+        await writeFile(
+          path.join(path.dirname(bundle.path), module.name),
+          module.content.toString()
+        );
+      }
+
       console.log("⎔ Starting a local server...");
       // TODO: just use execa for this
       local.current = spawn("node", [
@@ -287,6 +296,8 @@ function useLocalWorker(props: {
         (bundle.type === "esm" ? "modules" : "service-worker") === "modules"
           ? "true"
           : "false",
+        "--modules-rule",
+        '"CompiledWasm=**/*.wasm"',
       ]);
       console.log(`⬣ Listening at http://localhost:${port}`);
 
