@@ -1,5 +1,5 @@
 import { URLSearchParams } from "node:url";
-import { fetchInternal } from "./internal";
+import { fetchInternal, fetchInternalResponse } from "./internal";
 import type { RequestInit } from "undici";
 
 // Check out https://api.cloudflare.com/ for API docs.
@@ -21,12 +21,19 @@ export interface FetchResult<ResponseType = unknown> {
 /**
  * Make a fetch request for a raw JSON value.
  */
-export async function fetchRaw<ResponseType>(
+export async function fetchRaw(
   resource: string,
   init: RequestInit = {},
   queryParams?: URLSearchParams
-): Promise<ResponseType> {
-  return fetchInternal<ResponseType>(resource, init, queryParams);
+): Promise<string> {
+  const response = await fetchInternalResponse(resource, init, queryParams);
+  if (response.ok) {
+    return await response.text();
+  } else {
+    throw new Error(
+      `Failed to fetch ${resource} - ${response.status}: ${response.statusText});`
+    );
+  }
 }
 
 /**

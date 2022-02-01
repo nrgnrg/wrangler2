@@ -1,5 +1,5 @@
 import { URLSearchParams } from "node:url";
-import { fetchListResult, fetchResult } from "./cfetch";
+import { fetchListResult, fetchRaw, fetchResult } from "./cfetch";
 import type { Config } from "./config";
 
 type KvArgs = {
@@ -112,6 +112,16 @@ export async function putKeyValue(
     `/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${key}`,
     { method: "PUT", body: value },
     searchParams
+  );
+}
+
+export async function getKeyValue(
+  accountId: string,
+  namespaceId: string,
+  key: string
+): Promise<string> {
+  return await fetchRaw(
+    `/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${key}`
   );
 }
 

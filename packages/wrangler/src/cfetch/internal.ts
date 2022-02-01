@@ -1,7 +1,7 @@
 import { fetch } from "undici";
 import { getAPIToken, loginOrRefreshIfRequired } from "../user";
 import type { URLSearchParams } from "node:url";
-import type { RequestInit, HeadersInit } from "undici";
+import type { RequestInit, HeadersInit, Response } from "undici";
 
 export const CF_API_BASE_URL =
   process.env.CF_API_BASE_URL || "https://api.cloudflare.com/client/v4";
@@ -20,6 +20,23 @@ export async function fetchInternal<ResponseType>(
   init: RequestInit = {},
   queryParams?: URLSearchParams
 ): Promise<ResponseType> {
+  return responseToJson<ResponseType>(
+    await fetchInternalResponse(resource, init, queryParams)
+  );
+}
+
+/**
+ * An implementation detail of `fetchInternal` that does the actual fetching.
+ * We export this separately so that we can use it for one specific api,
+ * `kv:key get`/`getKeyValue()` in `cfetch/kv.ts`, because it's the only
+ * cloudflare api that doesn't return json in the standard FetchResult format.
+ */
+
+export async function fetchInternalResponse(
+  resource: string,
+  init: RequestInit = {},
+  queryParams?: URLSearchParams
+): Promise<Response> {
   await requireLoggedIn();
   const apiToken = requireApiToken();
   const headers = cloneHeaders(init.headers);
@@ -31,14 +48,22 @@ export async function fetchInternal<ResponseType>(
     ...init,
     headers,
   });
+  return response;
+}
 
+/**
+ * Convert a Response to json
+ */
+async function responseToJson<ResponseType>(
+  response: Response
+): Promise<ResponseType> {
   const jsonText = await response.text();
   try {
     const json = JSON.parse(jsonText);
     return json as ResponseType;
   } catch (e) {
     throw new Error(
-      `Failed to fetch ${resource} - ${response.status}: ${response.statusText}\nInvalid JSON response:\n${jsonText}`
+      `Failed to fetch ${response.url} - ${response.status}: ${response.statusText}\nInvalid JSON response:\n${jsonText}`
     );
   }
 }

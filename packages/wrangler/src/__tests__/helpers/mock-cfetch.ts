@@ -1,8 +1,9 @@
 import { URL, URLSearchParams } from "node:url";
 import { pathToRegexp } from "path-to-regexp";
+import { Response } from "undici";
 import { CF_API_BASE_URL } from "../../cfetch";
 import type { FetchResult } from "../../cfetch";
-import type { RequestInit } from "undici";
+import type { RequestInit, BodyInit } from "undici";
 
 /**
  * The signature of the function that will handle a mock request.
@@ -23,6 +24,24 @@ interface MockFetch<ResponseType> {
 const mocks: MockFetch<unknown>[] = [];
 
 /**
+ * Convert a Response to json
+ * This helper's just copied from cfetch/internal.ts
+ */
+async function responseToJson<ResponseType>(
+  response: Response
+): Promise<ResponseType> {
+  const jsonText = await response.text();
+  try {
+    const json = JSON.parse(jsonText);
+    return json as ResponseType;
+  } catch (e) {
+    throw new Error(
+      `Failed to fetch ${response.url} - ${response.status}: ${response.statusText}\nInvalid JSON response:\n${jsonText}`
+    );
+  }
+}
+
+/**
  * The mock implementation of `cfApi.fetch()`.
  *
  * This function will attempt to match the given request to one of the mock handlers configured by calls to `setMock`.
@@ -34,6 +53,16 @@ export async function mockFetchInternal(
   init: RequestInit = {},
   queryParams: URLSearchParams = new URLSearchParams()
 ) {
+  return responseToJson(
+    await mockFetchInternalResponse(resource, init, queryParams)
+  );
+}
+
+export async function mockFetchInternalResponse(
+  resource: string,
+  init: RequestInit = {},
+  queryParams: URLSearchParams = new URLSearchParams()
+) {
   for (const { regexp, method, handler } of mocks) {
     const resourcePath = new URL(resource, CF_API_BASE_URL).pathname;
     const uri = regexp.exec(resourcePath);
@@ -41,7 +70,12 @@ export async function mockFetchInternal(
     if (uri !== null && (!method || method === (init.method ?? "GET"))) {
       // The `resource` regular expression will extract the labelled groups from the URL.
       // These are passed through to the `handler` call, to allow it to do additional checks or behaviour.
-      return await handler(uri, init, queryParams); // TODO: should we have some kind of fallthrough system? we'll see.
+      let content = await handler(uri, init, queryParams);
+      if (typeof content !== "string") {
+        content = JSON.stringify(content, null, "  ");
+      }
+
+      return new Response(content as BodyInit); // TODO: should we have some kind of fallthrough system? we'll see.
     }
   }
   throw new Error(
@@ -140,23 +174,23 @@ export function setMockResponse<ResponseType>(
 /**
  * A helper to make it easier to create `FetchResult` objects in tests.
  */
-export function createFetchResult<ResponseType>(
-  result: ResponseType,
+export async function createFetchResult<ResponseType>(
+  result: ResponseType | Promise<ResponseType>,
   success = true,
   errors = [],
   messages = [],
   result_info?: unknown
-): FetchResult<ResponseType> {
+): Promise<FetchResult<ResponseType>> {
   return result_info
     ? {
-        result,
+        result: await result,
         success,
         errors,
         messages,
         result_info,
       }
     : {
-        result,
+        result: await result,
         success,
         errors,
         messages,

@@ -1,7 +1,10 @@
 import fetchMock from "jest-fetch-mock";
-import { fetchInternal } from "../cfetch/internal";
+import { fetchInternal, fetchInternalResponse } from "../cfetch/internal";
 import { confirm, prompt } from "../dialogs";
-import { mockFetchInternal } from "./helpers/mock-cfetch";
+import {
+  mockFetchInternal,
+  mockFetchInternalResponse,
+} from "./helpers/mock-cfetch";
 
 jest.mock("undici", () => {
   return {
@@ -16,6 +19,9 @@ fetchMock.doMock(() => {
 
 jest.mock("../cfetch/internal");
 (fetchInternal as jest.Mock).mockImplementation(mockFetchInternal);
+(fetchInternalResponse as jest.Mock).mockImplementation(
+  mockFetchInternalResponse
+);
 
 jest.mock("../dialogs");
 
