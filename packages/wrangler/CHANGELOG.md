@@ -1,5 +1,98 @@
 # wrangler
 
+## 0.0.16
+
+### Patch Changes
+
+- [#364](https://github.com/cloudflare/wrangler2/pull/364) [`3575892`](https://github.com/cloudflare/wrangler2/commit/3575892f99d7a77031d566a12b4a383c886cc64f) Thanks [@threepointone](https://github.com/threepointone)! - enhance: small tweaks to `wrangler init`
+
+  - A slightly better `package.json`
+  - A slightly better `tsconfig.json`
+  - installing `typescript` as a dev dependency
+
+* [#329](https://github.com/cloudflare/wrangler2/pull/329) [`27a1f3b`](https://github.com/cloudflare/wrangler2/commit/27a1f3b303fab855592f9ca980c770a4a0d85ec6) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - ci: run PR jobs on both Ubuntu, MacOS and Windows
+
+  - update .gitattributes to be consistent on Windows
+  - update Prettier command to ignore unknown files
+    Windows seems to be more brittle here.
+  - tighten up eslint config
+    Windows seems to be more brittle here as well.
+  - use the matrix.os value in the cache key
+    Previously we were using `running.os` but this appeared not to be working.
+
+- [#347](https://github.com/cloudflare/wrangler2/pull/347) [`ede5b22`](https://github.com/cloudflare/wrangler2/commit/ede5b2219fe636e376ae8a0e56978a33df448215) Thanks [@threepointone](https://github.com/threepointone)! - fix: hide `wrangler pages functions` in the main help menu
+
+  This hides `wrangler pages functions` in the main help menu, since it's only intended for internal usage right now. It still "works", so nothing changes in that regard. We'll bring this back when we have a broader story in wrangler for functions.
+
+* [#363](https://github.com/cloudflare/wrangler2/pull/363) [`0add2a6`](https://github.com/cloudflare/wrangler2/commit/0add2a6a6d7d861e5a6047873a473d5156e8ca89) Thanks [@threepointone](https://github.com/threepointone)! - fix: support uppercase hotkeys in `wrangler dev`
+
+  Just a quick fix to accept uppercase hotkeys during `dev`.
+
+- [#338](https://github.com/cloudflare/wrangler2/pull/338) [`e0d2f35`](https://github.com/cloudflare/wrangler2/commit/e0d2f35542bc37636098a30469e93702dd7a0d35) Thanks [@threepointone](https://github.com/threepointone)! - feat: environments for Worker Sites
+
+  This adds environments support for Workers Sites. Very simply, it uses a separate kv namespace that's indexed by the environment name. This PR also changes the name of the kv namespace generated to match wrangler 1's implementation.
+
+* [#329](https://github.com/cloudflare/wrangler2/pull/329) [`e1d2198`](https://github.com/cloudflare/wrangler2/commit/e1d2198b6454fead8a0115c2ed92a37b9def6dba) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - test: support testing in CI on Windows
+
+  - Don't rely on bash variables to configure tests
+    The use of bash variables in the `npm test` script is not supported in Windows Powershell, causing CI on Windows to fail.
+    These bash variables are used to override the API token and the Account ID.
+
+    This change moves the control of mocking these two concepts into the test code, by adding `mockAccountId()` and `mockApiToken()` helpers.
+
+    - The result is slightly more boilerplate in tests that need to avoid hitting the auth APIs.
+    - But there are other tests that had to revert these environment variables. So the boilerplate is reduced there.
+
+  - Sanitize command line for snapshot tests
+    This change applies `normalizeSlashes()` and `trimTimings()` to command line outputs and error messages to avoid inconsistencies in snapshots.
+    The benefit here is that authors do not need to keep adding them to all their snapshot tests.
+
+  - Move all the helper functions into their own directory to keep the test directory cleaner.
+
+- [#343](https://github.com/cloudflare/wrangler2/pull/343) [`cfd8ba5`](https://github.com/cloudflare/wrangler2/commit/cfd8ba5fa6b82968e5f8c5cce657e7c9eb468fc6) Thanks [@threepointone](https://github.com/threepointone)! - chore: update esbuild
+
+  Update esbuild to 0.14.14. Also had to change `import esbuild from "esbuild";` to `import * as esbuild from "esbuild";` in `dev.tsx`.
+
+* [#329](https://github.com/cloudflare/wrangler2/pull/329) [`ac168f4`](https://github.com/cloudflare/wrangler2/commit/ac168f4f62851ad3fe2e2705655baf8229c421ea) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - refactor: use helpers to manage npm commands
+
+  This change speeds up tests and avoids us checking that npm did what it is supposed to do.
+
+- [#348](https://github.com/cloudflare/wrangler2/pull/348) [`b8e3b01`](https://github.com/cloudflare/wrangler2/commit/b8e3b0124656ae3eb82fdebf1fcaaa056612ff1e) Thanks [@threepointone](https://github.com/threepointone)! - chore: replace `node-fetch` with `undici`
+
+  There are several reasons to replace `node-fetch` with `undici`:
+
+  - `undici`'s `fetch()` implementation is set to become node's standard `fetch()` implementation, which means we can just remove the dependency in the future (or optionally load it depending on which version of node is being used)
+  - `node-fetch` pollutes the global type space with a number of standard types
+  - we already bundle `undici` via `miniflare`/pages, so this means our bundle size could ostensibly become smaller.
+
+  This replaces `node-fetch` with `undici`.
+
+  - All instances of `import fetch from "node-fetch"` are replaced with `import {fetch} from "undici"`
+  - `undici` also comes with spec compliant forms of `FormData` and `File`, so we could also remove `formdata-node` in `form_data.ts`
+  - All the global types that were injected by `node-fetch` are now imported from `undici` (as well as some mistaken ones from `node:url`)
+  - NOTE: this also turns on `skipLibCheck` in `tsconfig.json`. Some dependencies oddly depend on browser globals like `Request`, `Response` (like `@miniflare/core`, `jest-fetch-mock`, etc), which now fail because `node-fetch` isn't injecting those globals anymore. So we enable `skipLibCheck` to bypass them. (I'd thought `skipLibCheck` completely ignores 'third party' types, but that's not true - it still uses the module graph to scan types. So we're still typesafe. We should enable `strict` sometime to avoid `any`s, but that's for later.)
+  - The bundle size isn't smaller because we're bundling 2 different versions of `undici`, but we'll fix that by separately upping the version of `undici` that miniflare bundles.
+
+* [#357](https://github.com/cloudflare/wrangler2/pull/357) [`41cfbc3`](https://github.com/cloudflare/wrangler2/commit/41cfbc3b20fa79313c0a7236530c519876a05fc9) Thanks [@threepointone](https://github.com/threepointone)! - chore: add eslint-plugin-import
+
+  - This adds `eslint-plugin-import` to enforce ordering of imports, and configuration for the same in `package.json`.
+  - I also run `npm run check:lint -- --fix` to apply the configured order in our whole codebase.
+  - This also needs a setting in `.vscode/settings.json` to prevent spurious warnings inside vscode. You'll probably have to restart your IDE for this to take effect. (re: https://github.com/import-js/eslint-plugin-import/issues/2377#issuecomment-1024800026)
+
+  (I'd also like to enforce using `node:` prefixes for node builtin modules, but that can happen later. For now I manually added the prefixes wherever they were missing. It's not functionally any different, but imo it helps the visual grouping.)
+
+- [#329](https://github.com/cloudflare/wrangler2/pull/329) [`b8a3e78`](https://github.com/cloudflare/wrangler2/commit/b8a3e785e4e4c348ff3495f2d0f9896e23a2b045) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - ci: use `npm ci` and do not cache workspace packages in node_modules
+
+  Previously we were caching all the `node_modules` files in the CI jobs and then running `npm install`. While this resulted in slightly improved install times on Ubuntu, it breaks on Windows because the npm workspace setup adds symlinks into node_modules, which the Github cache action cannot cope with.
+
+  This change removes the `node_modules` caches (saving some time by not needing to restore them) and replaces `npm install` with `npm ci`.
+
+  The `npm ci` command is actually designed to be used in CI jobs as it only installs the exact versions specified in the `package-lock.json` file, guaranteeing that for any commit we always have exactly the same CI job run, deterministically.
+
+  It turns out that, on Ubuntu, using `npm ci` makes very little difference to the installation time (~30 secs), especially if there is no `node_modules` there in the first place.
+
+  Unfortunately, MacOS is slower (~1 min), and Windows even worse (~2 mins)! But it is worth this longer CI run to be sure we have things working on all OSes.
+
 ## 0.0.15
 
 ### Patch Changes
